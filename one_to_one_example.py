@@ -1,5 +1,5 @@
 import torch
-import torch.nn as nn
+from torch import nn
 import torch._dynamo
 from torch._functorch.aot_autograd import aot_module_simplified
 
