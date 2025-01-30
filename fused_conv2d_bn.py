@@ -27,7 +27,7 @@ def fused_conv2d_batchnorm(x: torch.Tensor,
                            stride: List[int],
                            padding: List[int], 
                            dilation: List[int], 
-                           groups: int) -> torch.Tensor:
+                           groups: int) -> List[torch.Tensor]:
     if conv_bias is None:
         conv_bias = torch.zeros(conv_weight.size(0), device=x.device, dtype=x.dtype)
     
@@ -35,7 +35,10 @@ def fused_conv2d_batchnorm(x: torch.Tensor,
     fused_weight = conv_weight * bn_scale.view(-1, 1, 1, 1)
     fused_bias = (conv_bias - bn_running_mean) * bn_scale + bn_bias
 
-    return F.conv2d(x, fused_weight, fused_bias, stride, padding, dilation, groups)
+    save_mean = torch.empty(0, dtype=x.dtype)
+    save_var = torch.empty(0, dtype=x.dtype)
+
+    return F.conv2d(x, fused_weight, fused_bias, stride, padding, dilation, groups), save_mean, save_var
 
 @fused_conv2d_batchnorm.register_fake
 def _(x, conv_weight, conv_bias, bn_weight, bn_bias, bn_running_mean,
@@ -49,7 +52,10 @@ def _(x, conv_weight, conv_bias, bn_weight, bn_bias, bn_running_mean,
     W_out = math.floor((W + 2 * pad_w - k_w) / stride_w) + 1
     C_out = k_c
 
-    return torch.empty((B, C_out, H_out, W_out), dtype=x.dtype, device=x.device)
+    save_mean = torch.empty(0, dtype=x.dtype, device=x.device)
+    save_var = torch.empty(0, dtype=x.dtype, device=x.device)
+
+    return torch.empty((B, C_out, H_out, W_out), dtype=x.dtype, device=x.device), save_mean, save_var
 
 
 def prepare_inputs(B, C, H, W, dtype=torch.float16, device="cuda"):
@@ -79,7 +85,7 @@ def prepare_inputs(B, C, H, W, dtype=torch.float16, device="cuda"):
 def test_correctness():
     args = prepare_inputs(B=1, C=64, H=224, W=224)
     expected = _naive_conv2d_batchnorm(*args)
-    result = fused_conv2d_batchnorm(*args)
+    result, *_ = fused_conv2d_batchnorm(*args)
     torch.testing.assert_close(expected, result)
     print(f"{expected.shape=}")
     print(f"{result.shape=}")
