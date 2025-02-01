@@ -88,18 +88,15 @@ def fuser(gm, sample_inputs):
                         conv_node.args[4],   # padding
                         conv_node.args[5],   # dilation
                         conv_node.args[8],   # group
-
                     )
                 )
                 env[node] = new_fused_conv_bn
                 env[conv_node] = new_fused_conv_bn
 
-        new_graph.print_tabular()
         new_graph.lint()
-        new_graph.eliminate_dead_code()
+        new_graph.eliminate_dead_code()     # will remove redundant conv2d nodes
         new_gm = torch.fx.GraphModule(gm, new_graph)
-        new_gm.recompile()
-        new_gm.print_readable()
+        logger.debug(new_gm.code)
         return new_gm
 
     # fw_compiler = _fuse_by_matcher
