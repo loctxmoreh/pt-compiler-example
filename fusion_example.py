@@ -118,7 +118,11 @@ model.eval()
 B, C, H, W = 1, 3, 224, 224    
 input_ = torch.rand((B, C, H, W), dtype=dtype, device=device)
 
-fn = torch.compile(backend=fuser)(model)
-out = fn(input_)
+with torch.inference_mode():
+    expected = model(input_)
 
+with torch.inference_mode():
+    fn = torch.compile(backend=fuser)(model)
+    out = fn(input_)
 
+torch.testing.assert_close(out, expected)
