@@ -35,10 +35,12 @@ def fused_conv2d_batchnorm(x: torch.Tensor,
     fused_weight = conv_weight * bn_scale.view(-1, 1, 1, 1)
     fused_bias = (conv_bias - bn_running_mean) * bn_scale + bn_bias
 
+    # see: https://github.com/pytorch/pytorch/blob/2fd1b6b3610eb84cd615360a8fd23756a7f2e743/aten/src/ATen/native/miopen/BatchNorm_miopen.cpp#L136
     save_mean = torch.empty(0, dtype=x.dtype)
     save_var = torch.empty(0, dtype=x.dtype)
 
     return F.conv2d(x, fused_weight, fused_bias, stride, padding, dilation, groups), save_mean, save_var
+
 
 @fused_conv2d_batchnorm.register_fake
 def _(x, conv_weight, conv_bias, bn_weight, bn_bias, bn_running_mean,
@@ -80,7 +82,6 @@ def prepare_inputs(B, C, H, W, dtype=torch.float16, device="cuda"):
 
     return (x, conv_weight, conv_bias, bn_weight, bn_bias, bn_running_mean,
             bn_running_var, eps, stride, padding, dilation, groups)
-
 
 
 def test_correctness():
