@@ -3,7 +3,7 @@ from torch import nn
 import torch._dynamo
 from torch._functorch.aot_autograd import aot_module_simplified
 
-from custom_op import my_addmm
+from ops import my_addmm
 
 
 class MLP(nn.Module):

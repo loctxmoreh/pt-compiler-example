@@ -9,7 +9,7 @@ from torch._functorch.aot_autograd import aot_module_simplified
 from torch._inductor.compile_fx import compile_fx
 from torchvision.models import resnet50
 
-from fused_conv2d_bn import fused_conv2d_batchnorm
+from ops import fused_conv2d_batchnorm
 
 logger = logging.getLogger(__name__)
 
