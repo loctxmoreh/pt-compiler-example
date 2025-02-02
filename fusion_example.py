@@ -91,6 +91,7 @@ def main():
         expected = model(input_)
 
     with torch.inference_mode():
+        torch._dynamo.reset()
         fn = torch.compile(backend=conv2d_bn_fuser)(model)
         out = fn(input_)
 
