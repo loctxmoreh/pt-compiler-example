@@ -44,13 +44,14 @@ def fused_conv2d_batchnorm(x: torch.Tensor,
 def _(x, conv_weight, conv_bias, bn_weight, bn_bias, bn_running_mean,
       bn_running_var, eps, stride, padding, dilation, groups):
     B, C, H, W = x.shape
-    k_h, k_w, k_c, _ = conv_weight.shape
+    c_out, c_in, k_h, k_w = conv_weight.shape
     pad_h, pad_w = padding
     stride_h, stride_w = stride
+    dilation_h, dilation_w = dilation
 
-    H_out = math.floor((H + 2 * pad_h - k_h) / stride_h) + 1
-    W_out = math.floor((W + 2 * pad_w - k_w) / stride_w) + 1
-    C_out = k_c
+    H_out = (H + 2 * pad_h - dilation_h * (k_h - 1) - 1) // stride_h + 1
+    W_out = (W + 2 * pad_w - dilation_h * (k_w - 1) - 1) // stride_w + 1
+    C_out = c_out
 
     save_mean = torch.empty(0, dtype=x.dtype, device=x.device)
     save_var = torch.empty(0, dtype=x.dtype, device=x.device)
@@ -87,9 +88,16 @@ def test_correctness():
     expected = _naive_conv2d_batchnorm(*args)
     result, *_ = fused_conv2d_batchnorm(*args)
     torch.testing.assert_close(expected, result)
-    print(f"{expected.shape=}")
-    print(f"{result.shape=}")
+
+
+def test_fake_impl():
+    args = prepare_inputs(B=1, C=64, H=224, W=224)
+    meta_args = tuple(x.clone().to("meta") if isinstance(x, torch.Tensor) else x for x in args)
+    expected = _naive_conv2d_batchnorm(*args)
+    results, *_ = fused_conv2d_batchnorm._abstract_fn(*meta_args)
+    assert expected.shape == results.shape, f"{expected.shape=}, {results.shape=}"
 
 
 if __name__ == "__main__":
     test_correctness()
+    test_fake_impl()
