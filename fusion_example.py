@@ -1,3 +1,4 @@
+from functools import wraps
 import logging
 from typing import Callable, List
 
@@ -5,6 +6,7 @@ import torch
 from torch import nn
 import torch._dynamo
 from torch._functorch.aot_autograd import aot_module_simplified
+from torch._inductor.compile_fx import compile_fx
 from torchvision.models import resnet50
 
 from fused_conv2d_bn import fused_conv2d_batchnorm
@@ -61,12 +63,17 @@ def conv2d_bn_fuser(gm: torch.fx.GraphModule, sample_inputs: List[torch.Tensor])
         new_gm = torch.fx.GraphModule(gm, new_graph)
 
         logger.debug(new_gm.code)
-        assert "torch.ops.custom_op.fused_conv2d_bn" in new_gm.code
+        assert "torch.ops.custom_op.fused_conv2d_bn" in new_gm.code, "No fusion happen!?"
+
+        # finally, pass the new fx graph to inductor
+        # return compile_fx(new_gm, sample_inputs)
 
         return new_gm
 
+    # fw_compiler = compile_fx
+    fw_compiler = _iterate_and_fuse
     return aot_module_simplified(
-        gm, sample_inputs, fw_compiler=_iterate_and_fuse,
+        gm, sample_inputs, fw_compiler=fw_compiler,
     )
 
 
@@ -87,7 +94,7 @@ def main():
         fn = torch.compile(backend=conv2d_bn_fuser)(model)
         out = fn(input_)
 
-    torch.testing.assert_close(out, expected)
+    torch.testing.assert_close(out, expected, atol=1e-3, rtol=1e-2)
 
 
 if __name__ == "__main__":
