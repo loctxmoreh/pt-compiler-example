@@ -10,7 +10,7 @@ logger = logging.getLogger(__name__)
 
 
 def _silu_decomposition(x):
-    return x * torch.sigmoid(x)
+    return torch.ops.aten.mul.Tensor(x, torch.ops.aten.sigmoid.default(x))
 
 
 def simple_silu_decomp(gm, example_inputs):
