@@ -9,21 +9,27 @@ from torchvision.models import efficientnet_v2_s as efficientnet_v2
 logger = logging.getLogger(__name__)
 
 
+def _silu_decomposition(x):
+    return x * torch.sigmoid(x)
+
+
 def simple_silu_decomp(gm, example_inputs):
     assert "silu" in gm.code
     # logger.debug(gm.code)
 
     def _fw_compiler(gm, example_inputs):
+        # Silu is decomposed, so it should not be in the generated code
         assert "silu" not in gm.code
+
         logger.debug(gm.code)
         return gm
 
     return aot_module_simplified(
         gm, example_inputs, 
         fw_compiler=_fw_compiler,
-        decompositions=torch._decomp.get_decompositions([
-            torch.ops.aten.silu.default,
-        ])
+        decompositions={
+            torch.ops.aten.silu.default: _silu_decomposition,
+        }
     )
 
 
