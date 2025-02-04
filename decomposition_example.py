@@ -67,10 +67,18 @@ def manual_silu_decomp(gm, example_inputs):
     )
 
 
+def test_silu_decomp(dtype=torch.float32, device="cuda"):
+    x = torch.rand((32, 32), dtype=dtype, device=device)
+    expected = torch.ops.aten.silu.default(x)
+    result = _silu_decomposition(x)
+    torch.testing.assert_close(expected, result, atol=1e-3, rtol=1e-2)
+
+
 def main():
     logging.basicConfig(level=logging.DEBUG)
 
     dtype = torch.float16
+    test_silu_decomp()
     device = "cuda"
     model = efficientnet_v2().to(dtype).to(device)
     model.eval()
